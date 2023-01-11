@@ -143,9 +143,11 @@ extensions.
 
 The last topic will be a closer look at effects and co-effects in typed lambda
 calculi.  First, we'll start with call-by-push-value, a version of the lambda
-calculus that distinguishes values and computations. This calculus is a good
-foundation for talking about effectful computation and tracking effects in
-types.
+calculus that distinguishes values and computations. Then, we'll look at how
+type systems can track computational effects, starting with the FX programming
+language from the 1980s. We'll then jump to more modern treatments of
+Co-effects, via the Granule language and Linear Haskell. Finally, we'll see
+how these both relate to modal type systems.
 
 ## Mechanized proofs
 
