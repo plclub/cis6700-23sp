@@ -2,12 +2,12 @@
 # CIS 6700, Spring 2023
 
 
-Instructor:     [Stephanie Weirich](http://www.cis.upenn.edu/~sweirich)
-Time:           MW 3:30-5PM
-Location:       Towne 303
-Prerequisite:   CIS 5000 or PhD student status
+        Instructor:     Stephanie Weirich
+        Time:           MW 3:30-5PM
+        Location:       Towne 303
+        Prerequisite:   CIS 5000 or PhD student status
 
-The (course syllabus)[https://docs.google.com/spreadsheets/d/1i6NLEXnoAy6wkygLAEubdfVrhkF-se07Q6fwoAeTbK4/edit#gid=0] lists
+The [course syllabus](https://docs.google.com/spreadsheets/d/1i6NLEXnoAy6wkygLAEubdfVrhkF-se07Q6fwoAeTbK4/edit#gid=0) lists
 the overall plan of the semester.
 
 ## Introduction and course goals
@@ -72,7 +72,7 @@ weeks of the semester.
   
 ## Topics
 
-The (course syllabus)[https://docs.google.com/spreadsheets/d/1i6NLEXnoAy6wkygLAEubdfVrhkF-se07Q6fwoAeTbK4/edit#gid=0] lists
+The [course syllabus](https://docs.google.com/spreadsheets/d/1i6NLEXnoAy6wkygLAEubdfVrhkF-se07Q6fwoAeTbK4/edit#gid=0) lists
 the overall plan of the semester.
 
 This syllabus is divided into four parts:
