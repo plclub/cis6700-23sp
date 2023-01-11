@@ -62,6 +62,8 @@ I've created a slack channel #cis6700 in the [plclub
 slack](plclub.slack.com). If you do not have access to this slack, please let
 me know. You should join this channel to receive announcements about the
 course.
+
+Course notes and other information will be distributed via [github](https://github.com/plclub/cis6700-23sp).
   
 ## Mask policy
 
