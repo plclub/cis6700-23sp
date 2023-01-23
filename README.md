@@ -39,7 +39,7 @@ satisfy a course requirement for their PhD program. Others, who are generally
 interested in programming language theory are welcome to attend any class without 
 registering.
 
-+ If you are taking this class for a grade, please
+- If you are taking this class for a grade, please
   - Come to every class prepared (I'll announce the reading for the next class
   ahead of time)
   - Send me 1-2 questions the morning before each class (via email: sweirich@seas.upenn.edu)
@@ -47,11 +47,10 @@ registering.
   - Try to fill in the holes in the mechanized proofs at the beginning of the 
     semester to make sure you are up to speed
   - Complete a semester project (alone or in small  groups) to go deeper on a particular topic.
-   * replicate the proofs in a classic paper 
-   * extend a classic paper with a new feature
-   * some other exploration
-
-+ If you are auditing this semester, please
+      - replicate the proofs in a classic paper 
+      - extend a classic paper with a new feature
+      - some other exploration
+- If you are auditing this semester, please
    - Come to every class prepared (I'll announce the reading for the next class
      ahead of time)
    - Send me 1-2 questions before each class (via email: sweirich@seas.upenn.edu)
