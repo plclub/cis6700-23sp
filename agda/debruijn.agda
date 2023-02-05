@@ -224,6 +224,9 @@ module Streams where
 
 {- Instead of using infinite streams of numbers/terms we can also 
    represent multi-renamings/substitions using functions. 
+
+   EXERCISE: try to complete ext and exts with this version.
+
 -}
 
 module Functions where
@@ -238,10 +241,8 @@ module Functions where
   ρ_incr = suc
 
   ext : Renaming -> Renaming
-  ext ρ zero = zero            
-    -- at index 0 return 0
-  ext ρ (suc x) = suc (ρ x)    
-    -- everywhere else, add one to old value that was just before this one
+  ext ρ zero = {!!}            
+  ext ρ (suc x) = {!!}
 
   -- The rename function is the same structural recursion
   rename : Renaming -> NF -> NF
@@ -255,8 +256,8 @@ module Functions where
        -- ƛ # 3 · # 2 · # 0 · (ƛ # 3 · # 1)
   
   exts : Substitution -> Substitution
-  exts σ zero = # zero               -- at index 0 return # 0
-  exts σ (suc n) = rename suc (σ n)  -- everywhere else, increment 
+  exts σ zero = {!!}     -- at index 0 return # 0
+  exts σ (suc n) = {!!}  -- everywhere else, increment 
   
    -- Substitution is also a simple structural recursion
   subst : Substitution -> NF -> NF
