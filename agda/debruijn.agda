@@ -244,8 +244,8 @@ module Functions where
   ρ-incr = suc
 
   ext : Renaming -> Renaming
-  ext ρ zero =  zero            
-  ext ρ (suc x) =  suc (ρ x)
+  ext ρ zero =  {!!}            
+  ext ρ (suc x) =  {!!}
 
   -- The rename function is the same structural recursion
   rename : Renaming -> NF -> NF
@@ -259,8 +259,8 @@ module Functions where
        -- ƛ # 3 · # 2 · # 0 · (ƛ # 3 · # 1)
   
   exts : Substitution -> Substitution
-  exts σ zero = # 0     -- at index 0 return # 0
-  exts σ (suc n) = rename suc (σ n)  -- everywhere else, increment 
+  exts σ zero = {!!}     -- at index 0 return # 0
+  exts σ (suc n) = {!!}  -- everywhere else, increment 
   
    -- Substitution is also a simple structural recursion
   subst : Substitution -> NF -> NF
@@ -332,6 +332,13 @@ data _—→_ : NF -> NF → Set where
 -- If this were a typed language, you could think of the scope 
 -- as the length of the typing context needed to typecheck the 
 -- expression.
+
+-- EXERCISE: finish this proof. You'll need to use some properties
+-- of the natural number ≤ relation from the Agda standard library.
+-- Check out the two constructors z≤n and s≤s, (defined in 
+-- https://agda.github.io/agda-stdlib/Data.Nat.Base.html#1535) and 
+-- the property ≤-pred (defined in 
+-- https://agda.github.io/agda-stdlib/Data.Nat.Properties.html#7536)
 ------------------------------------------------------------
 
 data scope :  ℕ -> NF -> Set where
@@ -361,8 +368,8 @@ data scope :  ℕ -> NF -> Set where
 -- preserve scoping
 ext-scope : ∀ {i j : ℕ} {ρ : Renaming} -> (ρ-scope i j ρ) 
   -> (ρ-scope (suc i) (suc j) (ext ρ)) 
-ext-scope pf {zero} =  λ _ -> z≤n
-ext-scope pf {suc k} =  λ p1 -> s≤s (pf (≤-pred p1))
+ext-scope pf {zero} =  λ _ -> {!!}
+ext-scope pf {suc k} =  λ p1 -> {!!}
 
 rename-scope : ∀ {i j : ℕ}{ρ : Renaming}{M : NF} -> (ρ-scope i j ρ) 
   -> scope i M -> scope j (rename ρ M)
@@ -372,8 +379,7 @@ rename-scope {ρ} pf (d-ƛ dm) = d-ƛ (rename-scope (ext-scope pf) dm)
 
 exts-scope : ∀ {i j : ℕ} {σ : Substitution} -> (σ-scope i j σ) ->
    (σ-scope (suc i) (suc j) (exts σ)) 
-exts-scope pf {zero} =  λ _ -> d-# z≤n
-exts-scope {i}{j}{σ} pf {suc k} =  λ p -> rename-scope (λ{k} -> s≤s) (pf (≤-pred p))
+exts-scope pf = {!!}
 
 subst-scope : ∀ {i j : ℕ}{σ : Substitution}{M : NF} -> (σ-scope i j σ) 
   -> scope i M -> scope j (subst σ M)
@@ -391,10 +397,7 @@ open-scope dm dn = subst-scope (subst-zero-scope dn) dm
 -- Finally, we have the main proof that β-reduction is scope preserving
 
 scope-preservation : {i : ℕ}{M N : NF} -> M —→ N -> scope i M -> scope i N
-scope-preservation (ξ₁ red) (d-· dm dm₁) = d-· (scope-preservation red dm) dm₁
-scope-preservation (ξ₂ red) (d-· dm dm₁) = d-· dm (scope-preservation red dm₁)
-scope-preservation β (d-· (d-ƛ dm) dm₁) = open-scope dm dm₁
-scope-preservation (ζ red) (d-ƛ dm) =  d-ƛ (scope-preservation red dm)
+scope-preservation red scope = {!!}
 
 -- NOTE: This is a lot of work to prove scope verification even though the argument 
 -- is rather straightforward and determined by the structure of namefree terms. 
