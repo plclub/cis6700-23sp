@@ -11,11 +11,14 @@ module DeBruijn where
 -- In order to interpolate the original definitions to those 
 -- shown in PFLA.
 
-open import Data.Nat using (ℕ; zero; suc; _+_)
+open import Data.Nat using (ℕ; zero; suc; _+_; _≤_ ;  z≤n ; s≤s ; ≤-pred )
 open import Codata.Stream 
   using (Stream; _∷_; lookup; map; zipWith; tail; nats)
 open import Codata.Thunk using (force)
 open import Size
+import Relation.Binary.PropositionalEquality as Eq
+open Eq using (_≡_; refl)
+
 
 -- Syntax: Here is the definition of "namefree" expressions
 -- that we work with in this file.
@@ -87,14 +90,14 @@ module DeBruijn where
    -- apply this substitution to a namefree term, it shouldn't
    -- change anything.
 
-   σ_id : Substitution
-   σ_id = map #_ nats     -- nats is the stream  0 ∷ 1 ∷ 2 ∷ ...
+   σ-id : Substitution
+   σ-id = map #_ nats     -- nats is the stream  0 ∷ 1 ∷ 2 ∷ ...
 
    -- And here is an increment substitution that adds one to each
    -- index We want this substitution to behave like
    -- weakening. It should increment all of the free variables of
    -- the term and leave the bound ones alone.
-   σ_incr = map (λ i -> # (suc i)) nats
+   σ-incr = map (λ i -> # (suc i)) nats
 
    -- The substitution function in de Brujn's paper is written as 
    --
@@ -115,7 +118,7 @@ module DeBruijn where
      subst σ (ƛ N) = ƛ subst (exts σ) N
 
      exts : Substitution -> Substitution
-     exts σ = (# 0) ∷ λ where .force -> map (subst σ_incr) σ
+     exts σ = (# 0) ∷ λ where .force -> map (subst σ-incr) σ
 
      {- In the last case, if Σ is (... <Σ₃>, <Σ₂>, <Σ₁>) then de
      Bruijn says the result is
@@ -136,7 +139,7 @@ module DeBruijn where
      -}
 
 
-     test = subst σ_incr (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
+     test = subst σ-incr (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
         -- C-c C-n can normalize this to
         -- ƛ # 3 · # 2 · # 0 · (ƛ # 3 · # 1)
 
@@ -162,11 +165,11 @@ module Streams where
    -- replace indices by other indices.
    Renaming = Stream ℕ ∞
 
-   ρ_id : Renaming
-   ρ_id = nats
+   ρ-id : Renaming
+   ρ-id = nats
 
-   ρ_incr : Renaming
-   ρ_incr = map suc nats
+   ρ-incr : Renaming
+   ρ-incr = map suc nats
 
    -- We can compute the extended renaming in the lambda-case 
    -- without a recursive call to rename.
@@ -183,8 +186,8 @@ module Streams where
    rename ρ (L · M) = rename ρ L · rename ρ M
 
    -- Some examples (use C-c C-n to normalize them)
-   t1 = rename ρ_id (ƛ ( # 1 · # 0))
-   t2 = rename ρ_incr (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
+   t1 = rename ρ-id (ƛ ( # 1 · # 0))
+   t2 = rename ρ-incr (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
       -- ƛ # 3 · # 2 · # 0 · (ƛ # 3 · # 1)
 
    Substitution = Stream NF ∞
@@ -192,7 +195,7 @@ module Streams where
    -- Now to define the extended substitution, we use rename to increment 
    -- all indices in the terms in the substitution.
    exts : Substitution -> Substitution
-   exts σ = (# 0) ∷ λ where .force -> map (rename ρ_incr) σ
+   exts σ = (# 0) ∷ λ where .force -> map (rename ρ-incr) σ
 
    -- Substitution is also a simple structural recursion
    subst : Substitution -> NF -> NF
@@ -204,13 +207,13 @@ module Streams where
    r-to-s : Renaming -> Substitution
    r-to-s ρ = map #_ ρ
 
-   t3 = subst (r-to-s ρ_incr) (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
+   t3 = subst (r-to-s ρ-incr) (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
     -- ƛ # 3 · # 2 · # 0 · (ƛ # 3 · # 1)
 
    -- Single substitution AKA "open": replace index 0 with M, decrement
    -- all other free variables. (Leave bound vars alone.)
    subst-zero : NF -> Substitution
-   subst-zero M = M ∷ λ where .force -> (map #_ ρ_id)
+   subst-zero M = M ∷ λ where .force -> (map #_ ρ-id)
 
    t4 = subst (subst-zero (ƛ # 0)) (# 0 · # 1)
     -- (ƛ # 0) · # 0
@@ -234,15 +237,15 @@ module Functions where
   Renaming     = ℕ -> ℕ    -- lookup the renaming at an index
   Substitution = ℕ -> NF   -- lookup a substitution at an index
 
-  ρ_id : Renaming 
-  ρ_id n = n
+  ρ-id : Renaming 
+  ρ-id n = n
 
-  ρ_incr : Renaming 
-  ρ_incr = suc
+  ρ-incr : Renaming 
+  ρ-incr = suc
 
   ext : Renaming -> Renaming
-  ext ρ zero = {!!}            
-  ext ρ (suc x) = {!!}
+  ext ρ zero =  zero            
+  ext ρ (suc x) =  suc (ρ x)
 
   -- The rename function is the same structural recursion
   rename : Renaming -> NF -> NF
@@ -251,13 +254,13 @@ module Functions where
   rename ρ (L · M) = rename ρ L · rename ρ M
 
   -- Some examples (use C-c C-n to normalize them)
-  t1 = rename ρ_id (ƛ ( # 1 · # 0))
-  t2 = rename ρ_incr (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
+  t1 = rename ρ-id (ƛ ( # 1 · # 0))
+  t2 = rename ρ-incr (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
        -- ƛ # 3 · # 2 · # 0 · (ƛ # 3 · # 1)
   
   exts : Substitution -> Substitution
-  exts σ zero = {!!}     -- at index 0 return # 0
-  exts σ (suc n) = {!!}  -- everywhere else, increment 
+  exts σ zero = # 0     -- at index 0 return # 0
+  exts σ (suc n) = rename suc (σ n)  -- everywhere else, increment 
   
    -- Substitution is also a simple structural recursion
   subst : Substitution -> NF -> NF
@@ -277,3 +280,124 @@ module Functions where
    -- ƛ # 0 · (ƛ # 0) · # 1
   t7 = subst (subst-zero (ƛ # 0)) (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
    -- ƛ # 1 · (ƛ # 0) · # 0 · (ƛ (ƛ # 0) · # 1)
+
+open Functions
+
+
+------------------------------------------------------------------------
+-- Beta-reduction
+------------------------------------------------------------------------
+
+-- Now use the above to define full β-reduction
+
+-- An operation like "open"
+_[_] : NF -> NF -> NF
+_[_] N M = subst (subst-zero M) N
+
+
+-- Inductive definition of one-step β-reduction
+-- Uses the notation for the β-reduction rule. Other 
+-- rules are the compatible closure.
+infix 2 _—→_
+
+data _—→_ : NF -> NF → Set where
+
+  β : ∀ {N} {M}
+      ---------------------------------
+    → (ƛ N) · M —→ N [ M ]
+
+  ζ : ∀ {N N′}
+    → N —→ N′
+      -----------
+    → ƛ N —→ ƛ N′
+
+
+  ξ₁ : ∀ {L L′ M}
+    → L —→ L′
+      ----------------
+    → L · M —→ L′ · M
+
+  ξ₂ : ∀ {L M M′}
+    → M —→ M′
+      ----------------
+    → L · M —→ L · M′
+
+------------------------------------------------------------
+-- Now, let's prove that β-reduction is scope-preserving
+
+-- The "scope" of a name-free expression is a bound on the 
+-- largest index that appears in the expression. This bound 
+-- does not need to be tight, and an expression could have 
+-- multiple scopes. However, there is a unique minimum scope.
+-- If this were a typed language, you could think of the scope 
+-- as the length of the typing context needed to typecheck the 
+-- expression.
+------------------------------------------------------------
+
+data scope :  ℕ -> NF -> Set where
+  d-# : ∀ { x n } -> x ≤ n -> scope n (# x)
+  d-ƛ : ∀ { n M } -> scope (suc n) M -> scope n (ƛ M) 
+  d-· : ∀ { n L M } -> scope n L -> scope n M -> scope n (L · M) 
+
+-- We can extend the concept of scope to renamings and substitutions
+
+-- A renaming is scoped by i and j when all indices less than or equal to i
+-- are renamed to values less than or equal to j. 
+ρ-scope : ℕ -> ℕ -> Renaming -> Set
+ρ-scope i j ρ = ∀ {k : ℕ} -> k ≤ i -> (ρ k ≤ j)
+
+-- Like namefree expressions, renamings can be scoped by multiple pairs of
+-- indices.
+ρ-id-scope : ∀ {i} -> ρ-scope i i ρ-id
+ρ-id-scope {i} = λ p -> p 
+
+-- A substitution is scoped by i and j when all indices less than or equal to i
+-- map to namefree expressions scoped by j. Like renamings,
+-- substitutions can be scoped by multiple pairs of indices.
+σ-scope : ℕ -> ℕ -> Substitution -> Set
+σ-scope i j σ = ∀ {k : ℕ} -> k ≤ i -> scope j (σ k)
+
+-- Now we show that all of our operations on renamings and substitutions
+-- preserve scoping
+ext-scope : ∀ {i j : ℕ} {ρ : Renaming} -> (ρ-scope i j ρ) 
+  -> (ρ-scope (suc i) (suc j) (ext ρ)) 
+ext-scope pf {zero} =  λ _ -> z≤n
+ext-scope pf {suc k} =  λ p1 -> s≤s (pf (≤-pred p1))
+
+rename-scope : ∀ {i j : ℕ}{ρ : Renaming}{M : NF} -> (ρ-scope i j ρ) 
+  -> scope i M -> scope j (rename ρ M)
+rename-scope pf (d-# x) = d-# (pf x)
+rename-scope pf (d-· dm dm₁) = d-· (rename-scope pf dm) (rename-scope pf dm₁)
+rename-scope {ρ} pf (d-ƛ dm) = d-ƛ (rename-scope (ext-scope pf) dm)
+
+exts-scope : ∀ {i j : ℕ} {σ : Substitution} -> (σ-scope i j σ) ->
+   (σ-scope (suc i) (suc j) (exts σ)) 
+exts-scope pf {zero} =  λ _ -> d-# z≤n
+exts-scope {i}{j}{σ} pf {suc k} =  λ p -> rename-scope (λ{k} -> s≤s) (pf (≤-pred p))
+
+subst-scope : ∀ {i j : ℕ}{σ : Substitution}{M : NF} -> (σ-scope i j σ) 
+  -> scope i M -> scope j (subst σ M)
+subst-scope pf (d-# x) = pf x
+subst-scope pf (d-ƛ f) =  d-ƛ (subst-scope (exts-scope pf) f)
+subst-scope pf (d-· f f₁) =  d-· (subst-scope pf f) (subst-scope pf f₁)
+
+subst-zero-scope : ∀ {i : ℕ}{M : NF} -> scope i M -> σ-scope (suc i) i (subst-zero M)
+subst-zero-scope d {zero} pf =  d
+subst-zero-scope d {suc k} pf = d-# (≤-pred pf)
+
+open-scope : {i : ℕ}{M N : NF} -> scope (suc i) M -> scope i N -> scope i (M [ N ])
+open-scope dm dn = subst-scope (subst-zero-scope dn) dm
+
+-- Finally, we have the main proof that β-reduction is scope preserving
+
+scope-preservation : {i : ℕ}{M N : NF} -> M —→ N -> scope i M -> scope i N
+scope-preservation (ξ₁ red) (d-· dm dm₁) = d-· (scope-preservation red dm) dm₁
+scope-preservation (ξ₂ red) (d-· dm dm₁) = d-· dm (scope-preservation red dm₁)
+scope-preservation β (d-· (d-ƛ dm) dm₁) = open-scope dm dm₁
+scope-preservation (ζ red) (d-ƛ dm) =  d-ƛ (scope-preservation red dm)
+
+-- NOTE: This is a lot of work to prove scope verification even though the argument 
+-- is rather straightforward and determined by the structure of namefree terms. 
+-- For that reason it is more common in Agda to represent namefree terms with 
+-- intrinsic scopes, and define operations like subst simultaneously with its
+-- proof of scope preservation.
