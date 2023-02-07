@@ -4,12 +4,12 @@ module DeBruijn where
 
 -- This module defines a data type for lambda calculus expressions
 -- represented by de Bruijn indices and a substitution operations. 
--- It refers to N.G. de Bruijn's article
---  "Lambda Calculus notation with nameless dummies,
---   A tool for automatic formula manipulation with application 
---   to the Church-Rosser Theorem"
--- In order to interpolate the original definitions to those 
--- shown in PFLA.
+-- It refers to N.G. de Bruijn's article:
+--    "Lambda Calculus notation with nameless dummies,
+--     A tool for automatic formula manipulation with application 
+--     to the Church-Rosser Theorem"
+-- The goal of this module is to interpolate de Bruijn's original definitions
+-- to those shown in PFLA.
 
 open import Data.Nat using (ℕ; zero; suc; _+_; _≤_ ;  z≤n ; s≤s ; ≤-pred )
 open import Codata.Stream 
@@ -40,27 +40,35 @@ Section 5 of de Bruijn's article.
 
 We make a few changes from de Bruijn's definition:
 
-    1. We start counting from 0 instead of 1
+    1. We start counting indices from 0 instead of 1
     2. We drop constants and primitive function symbols
-    3. We use single application (M N) instead of 
+    3. We use single application (M · N) instead of 
        multi-application with a special "A" symbol
        i.e. A( M1 , M2 , ... )
-    4. Instead of capital greek letters for lambda 
-       expressions (Σ, Ω), we use M, N, P as metavars.
+
+    4. Instead of capital Greek letters for lambda expressions
+       (Σ, Ω), we use M, N, P as meta variables.
 -}
 
 
--- Here are some Church numerals expressed in this notation.
+-- Here are some Church numerals expressed in this notation
+-- (Note: due to Agda's flexible treatment of symbols in identifiers, 
+-- almost all tokens must be separated by spaces.)
 
+
+-- λ s. λ z. s (s z) 
 twoᶜ : NF
-twoᶜ =  ƛ ƛ (# 1 · (# 1 · # 0))
+twoᶜ = ƛ ƛ (# 1 · (# 1 · # 0))
 
+-- λ s. λ z. s (s (s (s z))) 
 fourᶜ : NF
 fourᶜ = ƛ ƛ (# 1 · (# 1 · (# 1 · (# 1 · # 0))))
 
+-- λ m. λ n. λ s. λ z. m s (n s z)
 plusᶜ : NF
 plusᶜ = ƛ ƛ ƛ ƛ (# 3 · # 1 · (# 2 · # 1 · # 0))
 
+-- NOTE: 2+2ᶜ is a variable name in Agda
 2+2ᶜ : NF
 2+2ᶜ = plusᶜ · twoᶜ · twoᶜ
 
@@ -72,17 +80,18 @@ module DeBruijn where
    {- 
 
    N. G. de Bruijn represents substitutions using an infinite
-   list of lambda terms, ordered right-to-left. This corresponds
-   to replacing variable #i with the term at position i in the
-   list. (Also, recall that indexing starts at 1 for de Bruijn).
+   list of lambda terms, ordered right-to-left. This
+   corresponds to replacing variable at index i with the term
+   at position i in the list. (Also, recall that indexing
+   starts at 1 for de Bruijn).
    
-   We can model this in Agda using a *coinductive stream* of
-   namefree terms. Agda's streams are written left-to-right and
-   indexing starts at 0.  (See Codata.Stream from the standard
-   library for more details.)
-
+   We can model a similar definition in Agda using a
+   *coinductive stream* of namefree terms. Agda's streams are
+   written left-to-right and indexing starts at 0. (See
+   Codata.Stream from the standard library for more details.)
    -}
 
+   -- A substitution is an infinite stream of namefree terms
    Substitution = Stream NF ∞
 
    -- For example, the identity substitution replaces the index
@@ -93,15 +102,16 @@ module DeBruijn where
    σ-id : Substitution
    σ-id = map #_ nats     -- nats is the stream  0 ∷ 1 ∷ 2 ∷ ...
 
-   -- And here is an increment substitution that adds one to each
-   -- index We want this substitution to behave like
-   -- weakening. It should increment all of the free variables of
-   -- the term and leave the bound ones alone.
+   -- And here is an incrementing substitution that adds one to
+   -- each index. We'll use this substitution for weakening.
    σ-incr = map (λ i -> # (suc i)) nats
 
-   -- The substitution function in de Brujn's paper is written as 
+   -- The substitution function in de Bruijn's paper is notated by 
    --
    --     S( ... <Σ₃>, <Σ₂>, <Σ₁>; Ω ) 
+   --
+   -- where ... <Σ₃>, <Σ₂>, <Σ₁> is the substitution and Ω is
+   -- the term.
    --
    -- In Agda, we'll write it as 
    -- 
@@ -126,43 +136,46 @@ module DeBruijn where
          S ( ... <Λ₃>, <Λ₂>, <Λ₁>, 1 ; N )
 
      where each <Λᵢ> is "obtained by adding 1 to every integer
-     in <Σᵢ> that refers to a free variable. (Note that these
-     terms have also each been shifted over one step in the
-     list.)
+     in <Σᵢ> that refers to a free variable". In
+     this case, we are applying the substitution underneath a 
+     lambda expression, so there is one more bound variable
+     in scope. That new bound variable should be left alone, 
+     and all of the existing substitutions must be shifted
+     over and the free variables in their terms must be 
+     incremented.
 
-     With our version, we start the new substitution with 0
-     (which corresponds to index 1) and then weaken all of the
-     terms that appear in the original substitution.  To do so
-     we use the stream's `map` operation with our weakening
-     substitution above.
-
+     With our version (calculated by `exts`), we start the new
+     substitution with 0 (identity sub for the bound variable)
+     and then weaken all of the terms that appear in the
+     original substitution.  To do so we use the stream's `map`
+     operation with our weakening substitution above.
      -}
 
 
-     test = subst σ-incr (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
-        -- C-c C-n can normalize this to
-        -- ƛ # 3 · # 2 · # 0 · (ƛ # 3 · # 1)
+   -- Test for substitution: weaken the free variables in 
+   -- this term.
+   test = subst σ-incr (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
+     -- C-c C-n can normalize this to
+     -- ƛ # 3 · # 2 · # 0 · (ƛ # 3 · # 1)
 
-     {-
+   {-
 
-     However, this definition is not obviously terminating. So 
-     Agda rejects it without the annotation. 
+     However, this definition of substs and exts is not
+     obviously terminating. To disable Agda's termination
+     checker for this definition we label it as TERMINATING.
 
-     The solution is to build up this definition in two parts.
+     But, we can revise the definition to satisfy Agda's
+     termination checker. The solution is to build up this
+     definition in two parts: first *renaming* and then
+     substitution.
 
-     First, renaming just replaces indices with other indices, 
-     then the increment part of substitution in the lambda case 
-     is defined using renaming.
-
-     -}
-
-
-
+   -}
 
 module Streams where
 
-   -- A renaming is just a stream of natural numbers. We can only 
-   -- replace indices by other indices.
+   -- A *renaming* is a limited form of substitution that
+   -- replaces indices by other indices, not terms. We can
+   -- represent it as a stream of natural numbers.
    Renaming = Stream ℕ ∞
 
    ρ-id : Renaming
@@ -171,11 +184,11 @@ module Streams where
    ρ-incr : Renaming
    ρ-incr = map suc nats
 
-   -- We can compute the extended renaming in the lambda-case 
-   -- without a recursive call to rename.
-   -- Note that The renaming is shifted over because we add 0 to 
-   -- the front.
-   -- To add 1 to each index in the renaming, we just use 'suc'
+   -- Key point for termination: we can compute the extended
+   -- renaming in the lambda-case without a recursive call to
+   -- rename.  To add 1 to each index in the renaming, we just
+   -- use 'suc'.
+
    ext : Renaming -> Renaming
    ext ρ = 0 ∷ λ where .force -> map suc ρ
 
@@ -203,7 +216,7 @@ module Streams where
    subst σ (ƛ N) = ƛ subst (exts σ) N
    subst σ (L · M) = subst σ L · subst σ M
 
-   -- We can convert a renaming to a substitution.
+   -- We can convert a renaming to a substitution
    r-to-s : Renaming -> Substitution
    r-to-s ρ = map #_ ρ
 
@@ -215,6 +228,7 @@ module Streams where
    subst-zero : NF -> Substitution
    subst-zero M = M ∷ λ where .force -> (map #_ ρ-id)
 
+   -- MORE test cases
    t4 = subst (subst-zero (ƛ # 0)) (# 0 · # 1)
     -- (ƛ # 0) · # 0
    t5 = subst (subst-zero (ƛ # 0)) (ƛ (# 0 · # 1))
@@ -224,9 +238,12 @@ module Streams where
    t7 = subst (subst-zero (ƛ # 0)) (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
     -- ƛ # 1 · (ƛ # 0) · # 0 · (ƛ (ƛ # 0) · # 1)
    
+------------------------------------------------------------------------
+-- Substitution represented as functions
+----------------------------------------------------------------------------
 
 {- Instead of using infinite streams of numbers/terms we can also 
-   represent multi-renamings/substitions using functions. 
+   represent multi-renamings/substitutions using functions. 
 
    EXERCISE: try to complete ext and exts with this version.
 
@@ -330,12 +347,12 @@ data _—→_ : NF -> NF → Set where
 -- does not need to be tight, and an expression could have 
 -- multiple scopes. However, there is a unique minimum scope.
 -- If this were a typed language, you could think of the scope 
--- as the length of the typing context needed to typecheck the 
+-- as the length of the typing context needed to type check the 
 -- expression.
 
 -- EXERCISE: finish this proof. You'll need to use some properties
 -- of the natural number ≤ relation from the Agda standard library.
--- Check out the two constructors z≤n and s≤s, (defined in 
+-- Check out the two constructors, z≤n and s≤s, (defined in 
 -- https://agda.github.io/agda-stdlib/Data.Nat.Base.html#1535) and 
 -- the property ≤-pred (defined in 
 -- https://agda.github.io/agda-stdlib/Data.Nat.Properties.html#7536)
