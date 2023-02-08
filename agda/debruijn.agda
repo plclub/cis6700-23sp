@@ -1,4 +1,4 @@
-{-# OPTIONS --without-K --sized-types #-}
+{-# OPTIONS --without-K --sized-types --no-guardedness  #-}
 
 module DeBruijn where
 
@@ -17,7 +17,7 @@ open import Codata.Stream
 open import Codata.Thunk using (force)
 open import Size
 import Relation.Binary.PropositionalEquality as Eq
-open Eq using (_≡_; refl)
+open Eq using (_≡_; refl; cong)
 
 
 -- Syntax: Here is the definition of "namefree" expressions
@@ -72,6 +72,20 @@ plusᶜ = ƛ ƛ ƛ ƛ (# 3 · # 1 · (# 2 · # 1 · # 0))
 2+2ᶜ : NF
 2+2ᶜ = plusᶜ · twoᶜ · twoᶜ
 
+-- The "scope" of a name-free expression is a bound on the 
+-- largest index that appears in the expression. This bound 
+-- does not need to be tight, and an expression could have 
+-- multiple scopes. However, there is a unique minimum scope.
+-- If this were a typed language, you could think of the scope 
+-- as the length of the typing context needed to type check the 
+-- expression.
+
+data scope :  ℕ -> NF -> Set where
+  d-# : ∀ { x n } -> x ≤ n -> scope n (# x)
+  d-ƛ : ∀ { n M } -> scope (suc n) M -> scope n (ƛ M) 
+  d-· : ∀ { n L M } -> scope n L -> scope n M -> scope n (L · M) 
+
+
 ------------------------------
 -- Substitution (Section 6)
 
@@ -123,9 +137,9 @@ module DeBruijn where
      -- (iii)
      subst σ (L · M) = subst σ L · subst σ M
      -- (iv)
-     subst σ (# x) = lookup x σ 
+     subst σ (# x)   = lookup x σ 
      -- (v)
-     subst σ (ƛ N) = ƛ subst (exts σ) N
+     subst σ (ƛ N)   = ƛ subst (exts σ) N
 
      exts : Substitution -> Substitution
      exts σ = (# 0) ∷ λ where .force -> map (subst σ-incr) σ
@@ -170,6 +184,7 @@ module DeBruijn where
      substitution.
 
    -}
+
 
 module Streams where
 
@@ -237,6 +252,64 @@ module Streams where
     -- ƛ # 0 · (ƛ # 0) · # 1
    t7 = subst (subst-zero (ƛ # 0)) (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
     -- ƛ # 1 · (ƛ # 0) · # 0 · (ƛ (ƛ # 0) · # 1)
+
+   -- Example proofs about stream representation of renamings and substitutions
+   -- Even though we are representing streams coinductively, these are 
+   -- inductive proofs over the index passed to lookup
+
+   lookup-suc : ∀ {k ρ} -> lookup k (map suc ρ) ≡ suc (lookup k ρ)
+   lookup-suc {zero}  {a ∷ b} = refl
+   lookup-suc {suc k} {a ∷ b} = lookup-suc {k}{b .force}
+
+   -------------------------------------------------------------------------
+   -- We can extend the concept of scope to renamings and substitutions
+   -- 
+   -- EXERCISE: finish these proofs.
+   -------------------------------------------------------------------------
+
+   -- A renaming is scoped by i and j when all indices less than or equal to i
+   -- are renamed to values less than or equal to j. 
+   ρ-scope : ℕ -> ℕ -> Renaming -> Set
+   ρ-scope i j ρ = ∀ {k : ℕ} -> k ≤ i -> (lookup k ρ ≤ j)
+
+   -- Like namefree expressions, renamings can be scoped by multiple pairs of
+   -- indices.
+   ρ-id-scope : ∀ {i} -> ρ-scope i i ρ-id
+   ρ-id-scope {i} z≤n =  z≤n
+   ρ-id-scope {suc i} (s≤s pf) = {!!}
+
+
+   -- A substitution is scoped by i and j when all indices less than or equal to i
+   -- map to namefree expressions scoped by j. Like renamings,
+   -- substitutions can be scoped by multiple pairs of indices.
+   σ-scope : ℕ -> ℕ -> Substitution -> Set
+   σ-scope i j σ = ∀ {k : ℕ} -> k ≤ i -> scope j (lookup k σ)
+
+   -- Now we show that all of our operations on renamings and substitutions
+   -- preserve scoping
+   ext-scope : ∀ {i j : ℕ} {ρ : Renaming} -> (ρ-scope i j ρ) 
+     -> (ρ-scope (suc i) (suc j) (ext ρ)) 
+   ext-scope pf        {zero} =  λ _ -> z≤n
+   ext-scope {i}{j} pf {suc k} =  λ p1 -> {!!}
+
+   rename-scope : ∀ {i j : ℕ}{ρ : Renaming}{M : NF} -> (ρ-scope i j ρ) 
+     -> scope i M -> scope j (rename ρ M)
+   rename-scope pf (d-# x) = d-# (pf x)
+   rename-scope pf (d-· dm dm₁) = d-· (rename-scope pf dm) (rename-scope pf dm₁)
+   rename-scope {ρ} pf (d-ƛ dm) = d-ƛ (rename-scope (ext-scope pf) dm)
+
+   exts-scope : ∀ {i j : ℕ} {σ : Substitution} -> (σ-scope i j σ) ->
+      (σ-scope (suc i) (suc j) (exts σ)) 
+   exts-scope pf z≤n = {!!}
+   exts-scope pf (s≤s lt) = {!!}
+
+   subst-scope : ∀ {i j : ℕ}{σ : Substitution}{M : NF} -> (σ-scope i j σ) 
+     -> scope i M -> scope j (subst σ M)
+   subst-scope pf (d-# x) = pf x
+   subst-scope pf (d-ƛ f) =  d-ƛ (subst-scope (exts-scope pf) f)
+   subst-scope pf (d-· f f₁) =  d-· (subst-scope pf f) (subst-scope pf f₁)
+
+
    
 ------------------------------------------------------------------------
 -- Substitution represented as functions
@@ -298,8 +371,62 @@ module Functions where
   t7 = subst (subst-zero (ƛ # 0)) (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
    -- ƛ # 1 · (ƛ # 0) · # 0 · (ƛ (ƛ # 0) · # 1)
 
-open Functions
 
+  ------------------------------------------------------------
+  -- EXERCISE: finish this proof. You'll need to use some properties
+  -- of the natural number ≤ relation from the Agda standard library. 
+  -- Check out the two constructors, z≤n and s≤s, (defined in 
+  -- https://agda.github.io/agda-stdlib/Data.Nat.Base.html#1535) and 
+  -- the property ≤-pred (defined in 
+  -- https://agda.github.io/agda-stdlib/Data.Nat.Properties.html#7536)
+  ------------------------------------------------------------
+
+
+  -- A renaming is scoped by i and j when all indices less than or equal to i
+  -- are renamed to values less than or equal to j. 
+  ρ-scope : ℕ -> ℕ -> Renaming -> Set
+  ρ-scope i j ρ = ∀ {k : ℕ} -> k ≤ i -> (ρ k ≤ j)
+
+  -- Like namefree expressions, renamings can be scoped by multiple pairs of
+  -- indices.
+  ρ-id-scope : ∀ {i} -> ρ-scope i i ρ-id
+  ρ-id-scope {i} = λ p -> p 
+
+  -- A substitution is scoped by i and j when all indices less than or equal to i
+  -- map to namefree expressions scoped by j. Like renamings,
+  -- substitutions can be scoped by multiple pairs of indices.
+  σ-scope : ℕ -> ℕ -> Substitution -> Set
+  σ-scope i j σ = ∀ {k : ℕ} -> k ≤ i -> scope j (σ k)
+
+  -- Now we show that all of our operations on renamings and substitutions
+  -- preserve scoping
+  ext-scope : ∀ {i j : ℕ} {ρ : Renaming} -> (ρ-scope i j ρ) 
+    -> (ρ-scope (suc i) (suc j) (ext ρ)) 
+  ext-scope pf {zero} =  λ _ -> {!!}
+  ext-scope pf {suc k} =  λ p1 -> {!!}
+
+  rename-scope : ∀ {i j : ℕ}{ρ : Renaming}{M : NF} -> (ρ-scope i j ρ) 
+    -> scope i M -> scope j (rename ρ M)
+  rename-scope pf (d-# x) = d-# (pf x)
+  rename-scope pf (d-· dm dm₁) = d-· (rename-scope pf dm) (rename-scope pf dm₁)
+  rename-scope {ρ} pf (d-ƛ dm) = d-ƛ (rename-scope (ext-scope pf) dm)
+
+  exts-scope : ∀ {i j : ℕ} {σ : Substitution} -> (σ-scope i j σ) ->
+     (σ-scope (suc i) (suc j) (exts σ)) 
+  exts-scope pf = {!!}
+
+  subst-scope : ∀ {i j : ℕ}{σ : Substitution}{M : NF} -> (σ-scope i j σ) 
+    -> scope i M -> scope j (subst σ M)
+  subst-scope pf (d-# x) = pf x
+  subst-scope pf (d-ƛ f) =  d-ƛ (subst-scope (exts-scope pf) f)
+  subst-scope pf (d-· f f₁) =  d-· (subst-scope pf f) (subst-scope pf f₁)
+
+  subst-zero-scope : ∀ {i : ℕ}{M : NF} -> scope i M -> σ-scope (suc i) i (subst-zero M)
+  subst-zero-scope d {zero} pf =  d
+  subst-zero-scope d {suc k} pf = d-# (≤-pred pf)
+
+
+open Functions
 
 ------------------------------------------------------------------------
 -- Beta-reduction
@@ -341,72 +468,6 @@ data _—→_ : NF -> NF → Set where
 
 ------------------------------------------------------------
 -- Now, let's prove that β-reduction is scope-preserving
-
--- The "scope" of a name-free expression is a bound on the 
--- largest index that appears in the expression. This bound 
--- does not need to be tight, and an expression could have 
--- multiple scopes. However, there is a unique minimum scope.
--- If this were a typed language, you could think of the scope 
--- as the length of the typing context needed to type check the 
--- expression.
-
--- EXERCISE: finish this proof. You'll need to use some properties
--- of the natural number ≤ relation from the Agda standard library.
--- Check out the two constructors, z≤n and s≤s, (defined in 
--- https://agda.github.io/agda-stdlib/Data.Nat.Base.html#1535) and 
--- the property ≤-pred (defined in 
--- https://agda.github.io/agda-stdlib/Data.Nat.Properties.html#7536)
-------------------------------------------------------------
-
-data scope :  ℕ -> NF -> Set where
-  d-# : ∀ { x n } -> x ≤ n -> scope n (# x)
-  d-ƛ : ∀ { n M } -> scope (suc n) M -> scope n (ƛ M) 
-  d-· : ∀ { n L M } -> scope n L -> scope n M -> scope n (L · M) 
-
--- We can extend the concept of scope to renamings and substitutions
-
--- A renaming is scoped by i and j when all indices less than or equal to i
--- are renamed to values less than or equal to j. 
-ρ-scope : ℕ -> ℕ -> Renaming -> Set
-ρ-scope i j ρ = ∀ {k : ℕ} -> k ≤ i -> (ρ k ≤ j)
-
--- Like namefree expressions, renamings can be scoped by multiple pairs of
--- indices.
-ρ-id-scope : ∀ {i} -> ρ-scope i i ρ-id
-ρ-id-scope {i} = λ p -> p 
-
--- A substitution is scoped by i and j when all indices less than or equal to i
--- map to namefree expressions scoped by j. Like renamings,
--- substitutions can be scoped by multiple pairs of indices.
-σ-scope : ℕ -> ℕ -> Substitution -> Set
-σ-scope i j σ = ∀ {k : ℕ} -> k ≤ i -> scope j (σ k)
-
--- Now we show that all of our operations on renamings and substitutions
--- preserve scoping
-ext-scope : ∀ {i j : ℕ} {ρ : Renaming} -> (ρ-scope i j ρ) 
-  -> (ρ-scope (suc i) (suc j) (ext ρ)) 
-ext-scope pf {zero} =  λ _ -> {!!}
-ext-scope pf {suc k} =  λ p1 -> {!!}
-
-rename-scope : ∀ {i j : ℕ}{ρ : Renaming}{M : NF} -> (ρ-scope i j ρ) 
-  -> scope i M -> scope j (rename ρ M)
-rename-scope pf (d-# x) = d-# (pf x)
-rename-scope pf (d-· dm dm₁) = d-· (rename-scope pf dm) (rename-scope pf dm₁)
-rename-scope {ρ} pf (d-ƛ dm) = d-ƛ (rename-scope (ext-scope pf) dm)
-
-exts-scope : ∀ {i j : ℕ} {σ : Substitution} -> (σ-scope i j σ) ->
-   (σ-scope (suc i) (suc j) (exts σ)) 
-exts-scope pf = {!!}
-
-subst-scope : ∀ {i j : ℕ}{σ : Substitution}{M : NF} -> (σ-scope i j σ) 
-  -> scope i M -> scope j (subst σ M)
-subst-scope pf (d-# x) = pf x
-subst-scope pf (d-ƛ f) =  d-ƛ (subst-scope (exts-scope pf) f)
-subst-scope pf (d-· f f₁) =  d-· (subst-scope pf f) (subst-scope pf f₁)
-
-subst-zero-scope : ∀ {i : ℕ}{M : NF} -> scope i M -> σ-scope (suc i) i (subst-zero M)
-subst-zero-scope d {zero} pf =  d
-subst-zero-scope d {suc k} pf = d-# (≤-pred pf)
 
 open-scope : {i : ℕ}{M N : NF} -> scope (suc i) M -> scope i N -> scope i (M [ N ])
 open-scope dm dn = subst-scope (subst-zero-scope dn) dm
