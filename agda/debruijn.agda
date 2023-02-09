@@ -81,9 +81,21 @@ plusᶜ = ƛ ƛ ƛ ƛ (# 3 · # 1 · (# 2 · # 1 · # 0))
 -- expression.
 
 data scope :  ℕ -> NF -> Set where
-  d-# : ∀ { x n } -> x ≤ n -> scope n (# x)
-  d-ƛ : ∀ { n M } -> scope (suc n) M -> scope n (ƛ M) 
-  d-· : ∀ { n L M } -> scope n L -> scope n M -> scope n (L · M) 
+  d-# : ∀ { x n } 
+       -> x ≤ n 
+    -------------------------
+       -> scope n (# x)
+
+  d-ƛ : ∀ { n M }
+      -> scope (suc n) M
+    ---------------------
+      -> scope n (ƛ M) 
+
+  d-· : ∀ { n L M }
+      -> scope n L 
+      -> scope n M 
+    ----------------------
+     -> scope n (L · M) 
 
 
 ------------------------------
@@ -333,9 +345,12 @@ module Functions where
   ρ-incr : Renaming 
   ρ-incr = suc
 
+  -- ext : Renaming -> Renaming
+  -- ext ρ = 0 ∷ λ where .force -> map suc ρ
+
   ext : Renaming -> Renaming
-  ext ρ zero =  {!!}            
-  ext ρ (suc x) =  {!!}
+  ext ρ zero =  zero             
+  ext ρ (suc x) = suc (ρ x)
 
   -- The rename function is the same structural recursion
   rename : Renaming -> NF -> NF
@@ -345,12 +360,15 @@ module Functions where
 
   -- Some examples (use C-c C-n to normalize them)
   t1 = rename ρ-id (ƛ ( # 1 · # 0))
+       -- 
   t2 = rename ρ-incr (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
        -- ƛ # 3 · # 2 · # 0 · (ƛ # 3 · # 1)
   
+  --  exts : Substitution -> Substitution
+  --  exts σ = (# 0) ∷ λ where .force -> map (rename ρ-incr) σ
   exts : Substitution -> Substitution
-  exts σ zero = {!!}     -- at index 0 return # 0
-  exts σ (suc n) = {!!}  -- everywhere else, increment 
+  exts σ zero = # 0     -- at index 0 return # 0
+  exts σ (suc n) = rename ρ-incr (σ n)  -- everywhere else, increment 
   
    -- Substitution is also a simple structural recursion
   subst : Substitution -> NF -> NF
@@ -358,6 +376,7 @@ module Functions where
   subst σ (ƛ N) = ƛ subst (exts σ) N
   subst σ (L · M) = (subst σ L) · (subst σ M)
 
+  -- ( M :: 0 :: 1 :: 2 ...)
   subst-zero : NF -> Substitution
   subst-zero M zero = M
   subst-zero M (suc n) = # n
@@ -402,8 +421,8 @@ module Functions where
   -- preserve scoping
   ext-scope : ∀ {i j : ℕ} {ρ : Renaming} -> (ρ-scope i j ρ) 
     -> (ρ-scope (suc i) (suc j) (ext ρ)) 
-  ext-scope pf {zero} =  λ _ -> {!!}
-  ext-scope pf {suc k} =  λ p1 -> {!!}
+  ext-scope pf z≤n =  z≤n
+  ext-scope pf (s≤s x) = s≤s (pf x)
 
   rename-scope : ∀ {i j : ℕ}{ρ : Renaming}{M : NF} -> (ρ-scope i j ρ) 
     -> scope i M -> scope j (rename ρ M)
@@ -413,7 +432,8 @@ module Functions where
 
   exts-scope : ∀ {i j : ℕ} {σ : Substitution} -> (σ-scope i j σ) ->
      (σ-scope (suc i) (suc j) (exts σ)) 
-  exts-scope pf = {!!}
+  exts-scope pf z≤n = d-# z≤n
+  exts-scope pf (s≤s x) = rename-scope s≤s ((pf x))
 
   subst-scope : ∀ {i j : ℕ}{σ : Substitution}{M : NF} -> (σ-scope i j σ) 
     -> scope i M -> scope j (subst σ M)
@@ -425,8 +445,103 @@ module Functions where
   subst-zero-scope d {zero} pf =  d
   subst-zero-scope d {suc k} pf = d-# (≤-pred pf)
 
+-- A third implementation of substitution is by "defunctionalizing" the functions
+-- shown above. The actual data structures that we use can vary, but the result is 
+-- an implementation similar to that of calculi of explicit substitutions
 
-open Functions
+module Explicit where
+
+  data Renaming : Set where
+    ρ-incr : Renaming 
+    ρ-ext  : Renaming -> Renaming 
+
+  data Substitution : Set where
+    σ-incr : Substitution
+    σ-exts : Substitution -> Substitution
+    subst-zero : NF -> Substitution
+
+  ρ-apply : Renaming -> ℕ -> ℕ
+  ρ-apply ρ-incr x = (suc x)
+  ρ-apply (ρ-ext ρ) zero = zero
+  ρ-apply (ρ-ext ρ) (suc x) = suc (ρ-apply ρ x)
+
+  -- The rename function is the same structural recursion
+  rename : Renaming -> NF -> NF
+  rename ρ (# x)    = # (ρ-apply ρ x)
+  rename ρ (ƛ N)    = ƛ rename (ρ-ext ρ) N
+  rename ρ (L · M) = rename ρ L · rename ρ M
+
+  -- Some examples (use C-c C-n to normalize them)
+  t2 = rename ρ-incr (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
+       -- ƛ # 3 · # 2 · # 0 · (ƛ # 3 · # 1)
+  
+  σ-apply : Substitution -> ℕ -> NF
+  σ-apply σ-incr x = # (suc x)
+  σ-apply (σ-exts σ) zero = # 0
+  σ-apply (σ-exts σ) (suc x) = rename ρ-incr (σ-apply σ x) 
+  σ-apply (subst-zero M) zero = M
+  σ-apply (subst-zero x₁) (suc x) = # x
+  
+   -- Substitution is also a simple structural recursion
+  subst : Substitution -> NF -> NF
+  subst σ (# x) = σ-apply σ x 
+  subst σ (ƛ N) = ƛ subst (σ-exts σ) N
+  subst σ (L · M) = (subst σ L) · (subst σ M)
+
+  t4 = subst (subst-zero (ƛ # 0)) (# 0 · # 1)
+   -- (ƛ # 0) · # 0
+  t5 = subst (subst-zero (ƛ # 0)) (ƛ (# 0 · # 1))
+   -- ƛ # 0 · (ƛ # 0)
+  t6 = subst (subst-zero (ƛ # 0)) (ƛ (# 0 · # 1 · # 2))
+   -- ƛ # 0 · (ƛ # 0) · # 1
+  t7 = subst (subst-zero (ƛ # 0)) (ƛ ( # 2 · # 1 · # 0 · (ƛ # 2 · # 1)))
+   -- ƛ # 1 · (ƛ # 0) · # 0 · (ƛ (ƛ # 0) · # 1)
+
+
+  -- A renaming is scoped by i and j when all indices less than or equal to i
+  -- are renamed to values less than or equal to j. 
+  data ρ-scope : ℕ -> ℕ -> Renaming -> Set where
+    ρ-incr-scope : ∀ {i} -> ρ-scope i (suc i) ρ-incr
+    ext-scope  : ∀ {i j ρ} -> ρ-scope i j ρ -> ρ-scope (suc i) (suc j) (ρ-ext ρ)
+
+  -- now we prove that our proof witnesses imply the ρ-scope property above
+  ρ-apply-scope : ∀ {i j ρ} -> ρ-scope i j ρ 
+      -> ∀ {k : ℕ} -> k ≤ i -> (ρ-apply ρ k ≤ j)
+  ρ-apply-scope ρ-incr-scope  x =  s≤s x
+  ρ-apply-scope (ext-scope s) z≤n =  z≤n
+  ρ-apply-scope (ext-scope pf) (s≤s x) = s≤s (ρ-apply-scope pf x)
+
+  rename-scope : ∀ {i j : ℕ}{ρ : Renaming}{M : NF} -> (ρ-scope i j ρ) 
+    -> scope i M -> scope j (rename ρ M)
+  rename-scope pf (d-# x)      = d-# (ρ-apply-scope pf x)
+  rename-scope pf (d-· dm dm₁) = d-· (rename-scope pf dm) (rename-scope pf dm₁)
+  rename-scope {ρ} pf (d-ƛ dm) = d-ƛ (rename-scope (ext-scope pf) dm)
+
+  -- A substitution is scoped by i and j when all indices less than or equal to i
+  -- map to namefree expressions scoped by j. Like renamings,
+  -- substitutions can be scoped by multiple pairs of indices.
+
+  data σ-scope : ℕ -> ℕ -> Substitution -> Set where
+    σ-incr-scope : ∀ {i}     -> σ-scope i (suc i) σ-incr
+    exts-scope   : ∀ {i j σ} -> σ-scope i j σ -> σ-scope (suc i) (suc j) (σ-exts σ)
+    subst-zero-scope : ∀ {i M}   -> scope i M -> σ-scope (suc i) i (subst-zero M)
+
+  σ-apply-scope : ∀ {i j σ} -> σ-scope i j σ 
+      -> ∀ {k : ℕ} -> k ≤ i -> scope j (σ-apply σ k)
+  σ-apply-scope σ-incr-scope x = d-# (s≤s x)
+  σ-apply-scope (exts-scope s) z≤n = d-# z≤n
+  σ-apply-scope (exts-scope s) (s≤s lt) = rename-scope ρ-incr-scope ( (σ-apply-scope s lt))
+  σ-apply-scope (subst-zero-scope x) z≤n = x
+  σ-apply-scope (subst-zero-scope x) (s≤s lt) = d-# lt
+
+  subst-scope : ∀ {i j : ℕ}{σ : Substitution}{M : NF} -> (σ-scope i j σ) 
+    -> scope i M -> scope j (subst σ M)
+  subst-scope pf (d-# x) = σ-apply-scope pf x
+  subst-scope pf (d-ƛ f) =  d-ƛ (subst-scope (exts-scope pf) f)
+  subst-scope pf (d-· f f₁) =  d-· (subst-scope pf f) (subst-scope pf f₁)
+
+
+open Explicit
 
 ------------------------------------------------------------------------
 -- Beta-reduction
@@ -475,7 +590,10 @@ open-scope dm dn = subst-scope (subst-zero-scope dn) dm
 -- Finally, we have the main proof that β-reduction is scope preserving
 
 scope-preservation : {i : ℕ}{M N : NF} -> M —→ N -> scope i M -> scope i N
-scope-preservation red scope = {!!}
+scope-preservation β scope = {!!}
+scope-preservation (ζ red) scope = {!!}
+scope-preservation (ξ₁ red) scope = {!!}
+scope-preservation (ξ₂ red) scope = {!!}
 
 -- NOTE: This is a lot of work to prove scope verification even though the argument 
 -- is rather straightforward and determined by the structure of namefree terms. 
