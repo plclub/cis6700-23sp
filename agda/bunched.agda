@@ -62,14 +62,18 @@ data _==_ : B -> B -> Set where
 
   mulid2 : ∀ { b } -> ( b ** one ) == b
 
-  mulc : ∀ b1 b2 b1' b2' -> b1 == b1' -> b2 == b2' -> ((b1 ** b2) == (b1' ** b2'))
+  mulc : ∀ b1 b2 b1' b2' 
+       -> b1 == b1' -> b2 == b2' -> ((b1 ** b2) == (b1' ** b2'))
 
   mulassoc  : ∀ { b1 b2 b3 } -> ( b1 ** (b2 ** b3) ) == ((b1 ** b2) ** b3)
 
 -- transform references from LHS context to RHS context
 
 shift : ∀ { b1 b2 A } -> b1 == b2 -> b1 ∋ A -> b2 ∋ A
-shift pf v = {!!}
+shift mulid1 (mult2 v) = v
+shift mulid2 (mult1 v) = v
+shift (mulc b1 b2 b1' b2' pf pf₁) v = {!!}
+shift mulassoc v = {!!}
 
 
 -- A hole is a reference to a bunch in a context
